@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Casino | Join4Join Network</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .glass { background: rgba(17, 24, 39, 0.7); backdrop-filter: blur(12px); }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-200 min-h-screen">
+
+    <div class="max-w-md mx-auto mt-10 p-6 glass rounded-2xl border border-gray-800">
+        <h2 class="text-lg font-bold text-cyan-400 mb-4">Account Configuration</h2>
+        <input id="userId" placeholder="Discord User ID" class="w-full p-3 mb-3 bg-gray-950 border border-gray-800 rounded-lg text-sm">
+        <input id="apiKey" placeholder="API Secret Key" class="w-full p-3 mb-4 bg-gray-950 border border-gray-800 rounded-lg text-sm">
+        <button onclick="saveAuth()" class="w-full py-3 bg-cyan-600 hover:bg-cyan-500 rounded-lg font-semibold transition">Save Configuration</button>
+    </div>
+
+    <main class="max-w-4xl mx-auto mt-10 p-8 glass rounded-2xl border border-gray-800">
+        <h1 class="text-3xl font-bold text-white mb-8 text-center">Casino Engine</h1>
+        
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <button onclick="gamble('coinflip')" class="p-6 bg-gray-900 hover:bg-cyan-900/30 border border-gray-800 rounded-xl transition text-sm font-bold">Coin Flip</button>
+            <button onclick="gamble('dice')" class="p-6 bg-gray-900 hover:bg-cyan-900/30 border border-gray-800 rounded-xl transition text-sm font-bold">Dice</button>
+            <button onclick="gamble('slots')" class="p-6 bg-gray-900 hover:bg-cyan-900/30 border border-gray-800 rounded-xl transition text-sm font-bold">Slots</button>
+            <button onclick="gamble('mines')" class="p-6 bg-gray-900 hover:bg-cyan-900/30 border border-gray-800 rounded-xl transition text-sm font-bold">Mines</button>
+            <button onclick="gamble('highlow')" class="p-6 bg-gray-900 hover:bg-cyan-900/30 border border-gray-800 rounded-xl transition text-sm font-bold">High/Low</button>
+        </div>
+
+        <div id="result-area" class="mt-8 text-center font-bold text-xl"></div>
+    </main>
+
+    <script>
+        function saveAuth() {
+            localStorage.setItem('j4j_uid', document.getElementById('userId').value);
+            localStorage.setItem('j4j_key', document.getElementById('apiKey').value);
+            alert("Configuration Saved!");
+        }
+
+        async function gamble(gameType) {
+            const userId = localStorage.getItem('j4j_uid');
+            const key = localStorage.getItem('j4j_key');
+            const betAmount = 10; // Default bet
+
+            if (!userId || !key) return alert("Please set your User ID and Key first.");
+
+            document.getElementById('result-area').innerHTML = "Processing...";
+
+            try {
+                const res = await fetch('https://sturdy-octo-guacamole-iota.vercel.app/api/casino_api', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: userId, key: key, game_type: gameType, bet: betAmount })
+                });
+
+                const data = await res.json();
+                document.getElementById('result-area').innerHTML = data.win 
+                    ? '<span class="text-green-400">🎉 VICTORY!</span>' 
+                    : '<span class="text-red-400">💀 LOSS - Coins Transferred.</span>';
+            } catch (err) {
+                document.getElementById('result-area').innerHTML = '<span class="text-red-500">Error connecting to API.</span>';
+            }
+        }
+    </script>
+</body>
+</html>
